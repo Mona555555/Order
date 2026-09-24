@@ -690,6 +690,10 @@
       maxZoom: 19
     }).addTo(map);
 
+    const kekIcon  = L.icon({ iconUrl: 'kek.png',  iconSize: [70, 70], iconAnchor: [35, 35] });
+    const pirosIcon = L.icon({ iconUrl: 'piros.png', iconSize: [70, 70], iconAnchor: [35, 35] });
+    L.marker([47.4738, 19.0716], { icon: kekIcon,  zIndexOffset: 500 }).addTo(map);
+    L.marker([47.4738, 19.0728], { icon: pirosIcon, zIndexOffset: 500 }).addTo(map);
     const bmwIcon = L.icon({ iconUrl: 'mosolybmw.png', iconSize: [90, 68], iconAnchor: [45, 34] });
     L.marker(START, { icon: bmwIcon, zIndexOffset: 1000 }).addTo(map);
   }
