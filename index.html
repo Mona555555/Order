@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Irány haza!</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { width: 100vw; height: 100vh; overflow: hidden; font-family: sans-serif; }
+
+    /* ── Kezdőkép ── */
+    #intro {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #intro img {
+      width: 90%;
+      height: 90%;
+      object-fit: contain;
+      border-radius: 12px;
+    }
+
+    /* ── Térkép (kezdetben rejtve) ── */
+    #map { width: 100%; height: 100%; display: none; }
+
+    /* ── Ding-Dong popup ── */
+    #dingdong {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: white;
+      border-radius: 18px;
+      padding: 30px 40px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      z-index: 1000;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    #dingdong.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    #dingdong .bell { font-size: 52px; margin-bottom: 10px; animation: ring 0.5s ease infinite alternate; display: block; }
+    @keyframes ring {
+      from { transform: rotate(-15deg); }
+      to   { transform: rotate(15deg); }
+    }
+    #dingdong .ding-text { font-size: 28px; font-weight: bold; color: #1a1a2e; }
+
+    /* ── Értesítő popup ── */
+    #notification {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) translateY(-30px);
+      background: white;
+      border-radius: 18px;
+      padding: 24px 28px 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      z-index: 1000;
+      max-width: 400px;
+      width: 90vw;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    #notification.show {
+      opacity: 1;
+      pointer-events: all;
+      transform: translate(-50%, -50%) translateY(0);
+    }
+    #notification .notif-icon { font-size: 36px; margin-bottom: 10px; }
+    #notification .notif-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .notif-btns { display: flex; gap: 12px; justify-content: center; }
+    .notif-btn {
+      padding: 10px 32px;
+      border: none;
+      border-radius: 22px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .notif-btn:hover { opacity: 0.85; transform: scale(1.04); }
+    #btn-igen1 { background: #16a34a; color: white; }
+    #btn-igen2 { background: #16a34a; color: white; }
+
+    /* ── hm overlay ── */
+    #hm-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2100;
+      pointer-events: none;
+      opacity: 0;
+    }
+    #hm-overlay.show { opacity: 1; }
+    #hm-img {
+      max-width: 80vw;
+      max-height: 80vh;
+      object-fit: contain;
+      transform-origin: top center;
+    }
+    #hm-img.pop-scale {
+      animation: popScale2 1.2s cubic-bezier(.17,.67,.38,1.3);
+    }
+
+    /* ── Meg ő is felirat ── */
+    #mego {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 80px;
+      font-weight: 900;
+      color: white;
+      text-shadow: 0 4px 24px rgba(0,0,0,0.7);
+      letter-spacing: 4px;
+      z-index: 2200;
+      opacity: 0;
+      transform: scale(0.5);
+      pointer-events: none;
+      transition: opacity 0.5s ease, transform 0.5s cubic-bezier(.17,.67,.38,1.3);
+    }
+    #mego.show { opacity: 1; transform: scale(1); }
+
+    /* ── ÖRÖKRE felirat ── */
+    #orokre {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 96px;
+      font-weight: 900;
+      color: white;
+      text-shadow: 0 4px 24px rgba(0,0,0,0.6);
+      letter-spacing: 6px;
+      z-index: 2000;
+      opacity: 0;
+      transform: scale(0.5);
+      pointer-events: none;
+      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.17,.67,.38,1.3);
+    }
+    #orokre.show {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* ── Typewriter ── */
+    #typewriter {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: white;
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a2e;
+      text-align: center;
+      line-height: 1.6;
+    }
+    #typewriter.show { display: flex; }
+
+    /* ── Merre popup ── */
+    #merre {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) translateY(-20px);
+      background: white;
+      border-radius: 18px;
+      padding: 28px 32px 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      z-index: 1300;
+      max-width: 420px;
+      width: 90vw;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    #merre.show {
+      opacity: 1;
+      pointer-events: all;
+      transform: translate(-50%, -50%) translateY(0);
+    }
+    .merre-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .merre-btns { display: flex; flex-direction: column; gap: 10px; }
+    .merre-btn {
+      padding: 11px 20px;
+      border: none;
+      border-radius: 22px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #3b82f6;
+      color: white;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .merre-btn:hover { opacity: 0.85; transform: scale(1.03); }
+    .merre-btn-long { font-size: 13px; }
+
+    /* ── Tündep popup ── */
+    #tundep-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) translateY(-20px);
+      background: white;
+      border-radius: 18px;
+      padding: 28px 32px 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      z-index: 1400;
+      max-width: 380px;
+      width: 90vw;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    #tundep-popup.show {
+      opacity: 1;
+      pointer-events: all;
+      transform: translate(-50%, -50%) translateY(0);
+    }
+    .tundep-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    /* ── Siess popup ── */
+    #siess {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: #fef08a;
+      border: 3px solid #eab308;
+      color: #713f12;
+      border-radius: 18px;
+      padding: 24px 40px;
+      font-size: 22px;
+      font-weight: 900;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      z-index: 1200;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.17,.67,.38,1.3);
+    }
+    #siess.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* ── Jó válasz popup ── */
+    #jo-valasz {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: #16a34a;
+      color: white;
+      border-radius: 18px;
+      padding: 28px 48px;
+      font-size: 26px;
+      font-weight: 900;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      z-index: 1200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.17,.67,.38,1.3);
+    }
+    #jo-valasz.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* ── Automata kézbesítés popup ── */
+    #auto-delivery {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) translateY(-30px);
+      background: white;
+      border-radius: 18px;
+      padding: 28px 32px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      z-index: 1100;
+      max-width: 420px;
+      width: 90vw;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a1a2e;
+      line-height: 1.6;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    #auto-delivery.show {
+      opacity: 1;
+      pointer-events: all;
+      transform: translate(-50%, -50%) translateY(0);
+    }
+    #countdown {
+      margin-top: 16px;
+      font-size: 48px;
+      font-weight: 900;
+      color: #dc2626;
+    }
+
+    /* ── Kúszó ijesztő felirat ── */
+    #creepy {
+      position: fixed;
+      left: 5%;
+      right: 5%;
+      bottom: -200px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 900;
+      color: #7f1d1d;
+      letter-spacing: 1px;
+      text-shadow:
+        0 0 6px white,  0 0 12px white, 0 0 20px white,
+        0 0 30px white,
+        0 0 8px #ef4444, 0 0 20px #ef4444;
+      z-index: 900;
+      padding: 14px 24px;
+      transition: bottom 8s linear;
+      pointer-events: none;
+    }
+    #creepy.crawl {
+      bottom: calc(50% - 110px);
+    }
+
+    /* ── Welcome overlay ── */
+    #welcome {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    #welcome.show { display: flex; }
+    #welcome-inner {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: stretch;
+      max-width: 40vw;
+      animation: pop 0.45s cubic-bezier(.17,.67,.38,1.3);
+    }
+    #welcome-banner {
+      background: #fde68a;
+      border: 2px solid #f59e0b;
+      border-radius: 12px 12px 0 0;
+      padding: 10px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #92400e;
+      text-align: center;
+      box-sizing: border-box;
+      word-wrap: break-word;
+      white-space: normal;
+    }
+    #welcome img {
+      max-width: 40vw;
+      max-height: 40vh;
+      border-radius: 0 0 16px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      display: block;
+    }
+    @keyframes pop {
+      from { transform: scale(0.55); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+    @keyframes popScale {
+      0%   { transform: scale(1) translateX(0); }
+      18%  { transform: scale(3) translateX(0); }
+      28%  { transform: scale(3) translateX(-12px); }
+      38%  { transform: scale(3) translateX(12px); }
+      46%  { transform: scale(3) translateX(-12px); }
+      54%  { transform: scale(3) translateX(12px); }
+      62%  { transform: scale(3) translateX(0); }
+      100% { transform: scale(1) translateX(0); }
+    }
+    @keyframes popScale2 {
+      0%   { transform: scale(1) translateX(0); }
+      18%  { transform: scale(2) translateX(0); }
+      28%  { transform: scale(2) translateX(-10px); }
+      38%  { transform: scale(2) translateX(10px); }
+      46%  { transform: scale(2) translateX(-10px); }
+      54%  { transform: scale(2) translateX(10px); }
+      62%  { transform: scale(2) translateX(0); }
+      100% { transform: scale(1) translateX(0); }
+    }
+    #intro-img.pop-scale {
+      animation: popScale 1.2s cubic-bezier(.17,.67,.38,1.3);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Kezdőkép -->
+<div id="intro">
+  <img id="intro-img" src="chill.png" alt="intro" />
+</div>
+
+<!-- Térkép -->
+<div id="map"></div>
+
+<!-- Ding-Dong popup -->
+<div id="dingdong">
+  <span class="bell">🔔</span>
+  <div class="ding-text">Ding-Dong</div>
+</div>
+
+<!-- Jó válasz popup -->
+<div id="jo-valasz">✅ Jó válasz!</div>
+
+<!-- Siess popup -->
+<div id="siess">⚡ Siess, mindjárt itt van!</div>
+
+<!-- Merre popup -->
+<div id="merre">
+  <div class="merre-title">🧭 Merre meneküljek a mestermű elől?</div>
+  <div class="merre-btns">
+    <button class="merre-btn" id="btn-tunde">Tündéhez</button>
+    <button class="merre-btn" id="btn-nem">Nem menekülök, végre belátom, hogy tényleg kell a rém.</button>
+  </div>
+</div>
+
+<!-- Tündep popup -->
+<div id="tundep-popup">
+  <div class="tundep-text">Én menekülnék tovább...</div>
+  <button class="merre-btn" id="btn-garages">Induljunk a garázsba</button>
+</div>
+
+<!-- hm.jpg overlay -->
+<div id="hm-overlay"><img id="hm-img" src="hm.jpg" /></div>
+
+<!-- Meg ő is felirat -->
+<div id="mego">Meg ő is!</div>
+
+<!-- ÖRÖKRE felirat -->
+<div id="orokre">ÖRÖKRE!</div>
+
+<!-- Typewriter szöveg -->
+<div id="typewriter"></div>
+
+<!-- Kúszó felirat -->
+<div id="creepy">Már közelít, hallatszik a kúszásának minden mozdulata</div>
+
+<!-- Automata kézbesítés popup -->
+<div id="auto-delivery">
+  <span id="auto-delivery-text"></span>
+  <div id="countdown"></div>
+</div>
+
+<!-- Értesítő -->
+<div id="notification">
+  <div class="notif-icon">📦</div>
+  <div class="notif-text">Várva várt csomagja megérkezett, átveszi?</div>
+  <div class="notif-btns">
+    <button class="notif-btn" id="btn-igen1">Igen</button>
+    <button class="notif-btn" id="btn-igen2">Igen</button>
+  </div>
+</div>
+
+<!-- Welcome overlay -->
+<div id="welcome" onclick="this.classList.remove('show')">
+  <div id="welcome-inner">
+    <div id="welcome-banner">☀️ Üdvözöllek szomszéd, milyen szépen süt itt a nap ma a Pápay parkban. Már meg is rendeltem a pizzádat, fél óra múlva jön!</div>
+    <img src="welcome.png" alt="Üdvözlünk otthon!" />
+  </div>
+</div>
+
+<script>
+  // BMW starts from Pápay Park
+  const START = [47.4739, 19.0722];
+
+  // ── Ding-Dong 4mp után, majd whaat.png, majd értesítő ──
+  setTimeout(() => {
+    document.getElementById('dingdong').classList.add('show');
+    setTimeout(() => {
+      document.getElementById('dingdong').classList.remove('show');
+      setTimeout(() => {
+        document.getElementById('intro-img').src = 'whaat.png';
+        setTimeout(() => {
+          document.getElementById('notification').classList.add('show');
+          autoTimer = setTimeout(() => {
+            if (accepted) return;
+            accepted = true;
+            document.getElementById('notification').classList.remove('show');
+            startCountdown('📬 Mivel nem fogadta el 2 másodpercen belül, automata kézbesítés lépett érvénybe a küszöb alatt.');
+          }, 2000);
+        }, 2000);
+      }, 400);
+    }, 2000);
+  }, 4000);
+
+  // ── Igen gombok + auto-timeout ──────────────────────────
+  let autoTimer = null;
+  let accepted = false;
+
+  function goToUjuj() {
+    document.getElementById('auto-delivery').classList.remove('show');
+    document.getElementById('intro-img').src = 'ujuj.png';
+    setTimeout(() => {
+      document.getElementById('intro-img').src = 'packing.png';
+      document.getElementById('siess').classList.add('show');
+      setTimeout(() => {
+        document.getElementById('siess').classList.remove('show');
+        setTimeout(() => {
+          document.getElementById('intro-img').src = 'Tunde.png';
+          setTimeout(() => {
+            document.getElementById('intro-img').src = 'escape.png';
+            setTimeout(() => {
+              document.getElementById('intro-img').src = 'kozelit.png';
+              setTimeout(() => {
+                document.getElementById('intro-img').src = 'ittvan.png';
+                setTimeout(() => {
+                  document.getElementById('intro-img').src = 'kuszob.png';
+                  setTimeout(() => {
+                    document.getElementById('intro-img').src = 'direction.png';
+                    setTimeout(() => {
+                      document.getElementById('merre').classList.add('show');
+                    }, 1000);
+                  }, 3000);
+                }, 3000);
+              }, 2000);
+            }, 3000);
+          }, 7000);
+        }, 400);
+      }, 3000);
+    }, 2000);
+  }
+
+  function startCountdown(text) {
+    document.getElementById('auto-delivery-text').textContent = text;
+    document.getElementById('auto-delivery').classList.add('show');
+    setTimeout(() => {
+      let n = 10;
+      const cdEl = document.getElementById('countdown');
+      cdEl.textContent = n;
+      const creepy = document.getElementById('creepy');
+      const iv = setInterval(() => {
+        n--;
+        cdEl.textContent = n;
+        if (n === 8) {
+          creepy.style.transition = 'none';
+          creepy.style.bottom = '4%';
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              creepy.style.transition = 'bottom 8s linear';
+              creepy.style.bottom = 'calc(50% - 110px)';
+            });
+          });
+        }
+        if (n <= 0) {
+          clearInterval(iv);
+          creepy.style.transition = 'opacity 0.4s';
+          creepy.style.opacity = '0';
+          goToUjuj();
+        }
+      }, 1000);
+    }, 4000);
+  }
+
+  function igenClicked() {
+    if (accepted) return;
+    accepted = true;
+    clearTimeout(autoTimer);
+    document.getElementById('notification').classList.remove('show');
+    startCountdown('📬 Jó döntés, az automata kézbesítés elindult a küszöb alatt.');
+  }
+
+  document.getElementById('btn-igen1').addEventListener('click', igenClicked);
+  document.getElementById('btn-igen2').addEventListener('click', igenClicked);
+
+  document.getElementById('btn-tunde').addEventListener('click', () => {
+    document.getElementById('merre').classList.remove('show');
+    document.getElementById('intro-img').src = 'Tundep.png';
+    setTimeout(() => {
+      document.getElementById('tundep-popup').classList.add('show');
+    }, 2000);
+  });
+  document.getElementById('btn-garages').addEventListener('click', () => {
+    document.getElementById('tundep-popup').classList.remove('show');
+    document.getElementById('intro').style.display = 'none';
+    showMap();
+  });
+  document.getElementById('btn-nem').addEventListener('click', () => {
+    document.getElementById('merre').classList.remove('show');
+    const img = document.getElementById('intro-img');
+    img.src = 'fej.png';
+    img.classList.remove('pop-scale');
+    void img.offsetWidth;
+    img.classList.add('pop-scale');
+    img.addEventListener('animationend', () => {
+      img.classList.remove('pop-scale');
+      img.style.display = 'none';
+      const tw = document.getElementById('typewriter');
+      tw.textContent = '';
+      tw.classList.add('show');
+      const text = 'Köszi Mona, nagyon tetszik a mestermű, minden nap egy ajándék vele, bevallom igazad volt!';
+      let i = 0;
+      const iv = setInterval(() => {
+        tw.textContent += text[i];
+        i++;
+        if (i >= text.length) {
+          clearInterval(iv);
+          setTimeout(() => {
+            tw.classList.remove('show');
+            img.style.display = '';
+            img.src = 'joejt.png';
+            setTimeout(() => {
+              img.src = 'moso.png';
+              setTimeout(() => {
+                img.src = 'ujtulaj.png';
+                setTimeout(() => {
+                  document.getElementById('orokre').classList.add('show');
+                  setTimeout(() => {
+                    const hmOverlay = document.getElementById('hm-overlay');
+                    const hmImg = document.getElementById('hm-img');
+                    hmOverlay.classList.add('show');
+                    hmImg.classList.remove('pop-scale');
+                    void hmImg.offsetWidth;
+                    hmImg.classList.add('pop-scale');
+                    hmImg.addEventListener('animationend', () => {
+                      hmImg.classList.remove('pop-scale');
+                      document.getElementById('mego').classList.add('show');
+                    }, { once: true });
+                  }, 1500);
+                }, 2000);
+              }, 3000);
+            }, 3000);
+          }, 1500);
+        }
+      }, 120);
+    }, { once: true });
+  });
+
+  // ── Térkép (később jelenik meg) ───────────────────────
+  let mapInitialized = false;
+  function showMap() {
+    if (mapInitialized) return;
+    mapInitialized = true;
+    document.getElementById('map').style.display = 'block';
+
+    const map = L.map('map', { zoomControl: false }).setView(START, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    const bmwIcon = L.icon({ iconUrl: 'mosolybmw.png', iconSize: [90, 68], iconAnchor: [45, 34] });
+    L.marker(START, { icon: bmwIcon, zIndexOffset: 1000 }).addTo(map);
+  }
+
+  // ── Interpolation helper ──────────────────────────────
+  function interpolate(pts, steps) {
+    const segs = []; let total = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = Math.hypot(pts[i][0]-pts[i+1][0], pts[i][1]-pts[i+1][1]);
+      segs.push(d); total += d;
+    }
+    const result = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const n = Math.max(2, Math.round((segs[i] / total) * steps));
+      for (let j = 0; j < n; j++) {
+        const t = j / n;
+        result.push([
+          pts[i][0] + t * (pts[i+1][0] - pts[i][0]),
+          pts[i][1] + t * (pts[i+1][1] - pts[i][1])
+        ]);
+      }
+    }
+    result.push(pts[pts.length - 1]);
+    return result;
+  }
+</script>
+</body>
+</html>
