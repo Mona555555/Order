@@ -777,9 +777,54 @@
           const pirosIcon = L.icon({ iconUrl: 'piros.png',      iconSize: [70,70], iconAnchor: [35,35] });
           const bmwIcon   = L.icon({ iconUrl: 'mosolybmw.png',  iconSize: [90,68], iconAnchor: [45,34] });
 
-          const bmwMarker   = L.marker(START,              { icon: bmwIcon,   zIndexOffset: 1000 }).addTo(map);
-          const kekMarker   = L.marker([47.4738, 19.0716], { icon: kekIcon,   zIndexOffset: 500  }).addTo(map);
-          const pirosMarker = L.marker([47.4738, 19.0728], { icon: pirosIcon, zIndexOffset: 500  }).addTo(map);
+          // Start off-screen left — BMW előre, kek/piros mögötte sorban
+          const bmwMarker   = L.marker([47.4739, 18.950], { icon: bmwIcon,   zIndexOffset: 1000 }).addTo(map);
+          const kekMarker   = L.marker([47.4741, 18.910], { icon: kekIcon,   zIndexOffset: 500  }).addTo(map);
+          const pirosMarker = L.marker([47.4737, 18.870], { icon: pirosIcon, zIndexOffset: 500  }).addTo(map);
+
+          // Lerp + easing helpers
+          function lerp(a, b, t) { return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
+          function easeIn(t)     { return t*t; }
+          function easeInOut(t)  { return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+
+          // Összejövési pont: képernyő fele (~19.025), de még nem a Pápay Park
+          const MEET       = [47.4739, 19.025];
+          const bmwFinal   = [47.4739, 19.0722];
+          const kekFinal   = [47.4738, 19.0716];
+          const pirosFinal = [47.4738, 19.0728];
+
+          const bmwStart   = [47.4739, 18.950]; // előre
+          const kekStart   = [47.4741, 18.910]; // mögötte
+          const pirosStart = [47.4737, 18.870]; // leghátul
+
+          // Phase 1: lassú beúszás — BMW vezet, kek/piros felzárkózik a MEET pontnál
+          // Phase 2: együtt mennek be a Pápay Parkba
+          const F1 = 160; // lassú (~2.6s)
+          const F2 = 110; // beérkezés (~1.8s)
+          let frame = 0;
+          const arriveIv = setInterval(() => {
+            frame++;
+            if (frame <= F1) {
+              // BMW lineárisan halad MEET-ig
+              // kek/piros felzárkóznak (easeIn — lassan indulnak, gyorsulnak)
+              const tBmw  = frame / F1;
+              const tRest = easeIn(frame / F1);
+              bmwMarker.setLatLng(lerp(bmwStart, MEET, tBmw));
+              kekMarker.setLatLng(lerp(kekStart, MEET, tRest));
+              pirosMarker.setLatLng(lerp(pirosStart, MEET, tRest));
+            } else if (frame <= F1 + F2) {
+              // Mind a három együtt kúszik be Pápay Parkba
+              const t = easeInOut((frame - F1) / F2);
+              bmwMarker.setLatLng(lerp(MEET, bmwFinal, t));
+              kekMarker.setLatLng(lerp(MEET, kekFinal, t));
+              pirosMarker.setLatLng(lerp(MEET, pirosFinal, t));
+            } else {
+              clearInterval(arriveIv);
+              bmwMarker.setLatLng(bmwFinal);
+              kekMarker.setLatLng(kekFinal);
+              pirosMarker.setLatLng(pirosFinal);
+            }
+          }, 16);
 
           const hajszaDiv = document.createElement('div');
           hajszaDiv.textContent = 'Induljon a hajsza!';
