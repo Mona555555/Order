@@ -35,6 +35,7 @@
       position: fixed;
       top: 50%;
       left: 50%;
+      zoom: 0.85;
       transform: translate(-50%, -50%) scale(0.8);
       background: white;
       border-radius: 18px;
@@ -62,6 +63,7 @@
       position: fixed;
       top: 50%;
       left: 50%;
+      zoom: 0.85;
       transform: translate(-50%, -50%) translateY(-30px);
       background: white;
       border-radius: 18px;
@@ -190,6 +192,7 @@
       position: fixed;
       top: 50%;
       left: 50%;
+      zoom: 0.85;
       transform: translate(-50%, -50%) translateY(-20px);
       background: white;
       border-radius: 18px;
@@ -235,6 +238,7 @@
       position: fixed;
       top: 50%;
       left: 50%;
+      zoom: 0.85;
       transform: translate(-50%, -50%) translateY(-20px);
       background: white;
       border-radius: 18px;
@@ -266,6 +270,7 @@
       position: fixed;
       top: 50%;
       left: 50%;
+      zoom: 0.85;
       transform: translate(-50%, -50%) scale(0.8);
       background: #fef08a;
       border: 3px solid #eab308;
@@ -291,6 +296,7 @@
       position: fixed;
       top: 50%;
       left: 50%;
+      zoom: 0.85;
       transform: translate(-50%, -50%) scale(0.8);
       background: #16a34a;
       color: white;
@@ -314,6 +320,7 @@
       position: fixed;
       top: 50%;
       left: 50%;
+      zoom: 0.85;
       transform: translate(-50%, -50%) translateY(-30px);
       background: white;
       border-radius: 18px;
@@ -566,8 +573,8 @@
                 }, 3000);
               }, 2000);
             }, 3000);
-          }, 7000);
-        }, 400);
+          }, 9000);
+        }, 2400);
       }, 3000);
     }, 2000);
   }
@@ -623,8 +630,11 @@
   });
   document.getElementById('btn-garages').addEventListener('click', () => {
     document.getElementById('tundep-popup').classList.remove('show');
-    document.getElementById('intro').style.display = 'none';
-    showMap();
+    document.getElementById('intro-img').src = 'garazsjujj.png';
+    setTimeout(() => {
+      document.getElementById('intro').style.display = 'none';
+      showMap();
+    }, 3000);
   });
   document.getElementById('btn-nem').addEventListener('click', () => {
     document.getElementById('merre').classList.remove('show');
@@ -690,12 +700,53 @@
       maxZoom: 19
     }).addTo(map);
 
-    const kekIcon  = L.icon({ iconUrl: 'kek.png',  iconSize: [70, 70], iconAnchor: [35, 35] });
-    const pirosIcon = L.icon({ iconUrl: 'piros.png', iconSize: [70, 70], iconAnchor: [35, 35] });
-    L.marker([47.4738, 19.0716], { icon: kekIcon,  zIndexOffset: 500 }).addTo(map);
-    L.marker([47.4738, 19.0728], { icon: pirosIcon, zIndexOffset: 500 }).addTo(map);
-    const bmwIcon = L.icon({ iconUrl: 'mosolybmw.png', iconSize: [90, 68], iconAnchor: [45, 34] });
-    L.marker(START, { icon: bmwIcon, zIndexOffset: 1000 }).addTo(map);
+    const kekIcon   = L.icon({ iconUrl: 'kek.png',        iconSize: [70, 70], iconAnchor: [35, 35] });
+    const pirosIcon = L.icon({ iconUrl: 'piros.png',       iconSize: [70, 70], iconAnchor: [35, 35] });
+    const bmwIcon   = L.icon({ iconUrl: 'mosolybmw.png',   iconSize: [90, 68], iconAnchor: [45, 34] });
+
+    const kekMarker   = L.marker([47.4738, 19.0716], { icon: kekIcon,   zIndexOffset: 500  }).addTo(map);
+    const pirosMarker = L.marker([47.4738, 19.0728], { icon: pirosIcon, zIndexOffset: 500  }).addTo(map);
+    const bmwMarker   = L.marker(START,              { icon: bmwIcon,   zIndexOffset: 1000 }).addTo(map);
+
+    const hajszaDiv = document.createElement('div');
+    hajszaDiv.textContent = 'Induljon a hajsza!';
+    hajszaDiv.style.cssText = 'position:absolute;top:16px;left:50%;transform:translateX(-50%);background:white;padding:10px 24px;border-radius:22px;font-size:20px;font-weight:900;color:#1a1a2e;box-shadow:0 4px 16px rgba(0,0,0,0.25);letter-spacing:1px;z-index:1000;white-space:nowrap;';
+    document.getElementById('map').appendChild(hajszaDiv);
+
+    function lngFromAngle(a) {
+      const n = ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      return (n / (2 * Math.PI)) * 360 - 180;
+    }
+
+    // Phase 1 – zoom out to world view
+    setTimeout(() => {
+      map.flyTo([20, 10], 2, { duration: 3 });
+
+      // Phase 2 – racing around the globe
+      setTimeout(() => {
+        let angle = 0;
+        const lapSpeed = 0.035;
+        const iv = setInterval(() => {
+          angle += lapSpeed;
+
+          bmwMarker.setLatLng([22 * Math.sin(angle * 2), lngFromAngle(angle)]);
+          kekMarker.setLatLng([18 * Math.sin((angle - 0.5) * 2), lngFromAngle(angle - 0.5)]);
+          pirosMarker.setLatLng([15 * Math.sin((angle - 1.0) * 2), lngFromAngle(angle - 1.0)]);
+
+          if (angle >= 2 * Math.PI) {
+            clearInterval(iv);
+
+            // Phase 3 – zoom back to Budapest
+            map.flyTo(START, 15, { duration: 3.5 });
+            setTimeout(() => {
+              bmwMarker.setLatLng(START);
+              kekMarker.setLatLng([47.4738, 19.0716]);
+              pirosMarker.setLatLng([47.4738, 19.0728]);
+            }, 3500);
+          }
+        }, 50);
+      }, 3500);
+    }, 1500);
   }
 
   // ── Interpolation helper ──────────────────────────────
