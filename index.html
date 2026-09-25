@@ -720,29 +720,36 @@
 
     // Phase 1 – zoom out to world view
     setTimeout(() => {
-      map.flyTo([20, 10], 2, { duration: 3 });
+      map.flyTo([0, 10], 2, { duration: 3 });
 
-      // Phase 2 – racing around the globe
+      // Phase 2 – racing along the equator, globe rotates
       setTimeout(() => {
         let angle = 0;
         const lapSpeed = 0.035;
         const iv = setInterval(() => {
           angle += lapSpeed;
 
-          bmwMarker.setLatLng([22 * Math.sin(angle * 2), lngFromAngle(angle)]);
-          kekMarker.setLatLng([18 * Math.sin((angle - 0.5) * 2), lngFromAngle(angle - 0.5)]);
-          pirosMarker.setLatLng([15 * Math.sin((angle - 1.0) * 2), lngFromAngle(angle - 1.0)]);
+          const bmwLng   = lngFromAngle(angle);
+          const kekLng   = lngFromAngle(angle - 0.5);
+          const pirosLng = lngFromAngle(angle - 1.0);
+
+          bmwMarker.setLatLng([0, bmwLng]);
+          kekMarker.setLatLng([0, kekLng]);
+          pirosMarker.setLatLng([0, pirosLng]);
+
+          // Spin the globe by following the BMW
+          map.setView([0, bmwLng], 2, { animate: false });
 
           if (angle >= 2 * Math.PI) {
             clearInterval(iv);
 
             // Phase 3 – zoom back to Budapest
             map.flyTo(START, 15, { duration: 3.5 });
-            setTimeout(() => {
-              bmwMarker.setLatLng(START);
-              kekMarker.setLatLng([47.4738, 19.0716]);
-              pirosMarker.setLatLng([47.4738, 19.0728]);
-            }, 3500);
+
+            // Arrive one by one
+            setTimeout(() => { bmwMarker.setLatLng(START); },              3500);
+            setTimeout(() => { kekMarker.setLatLng([47.4738, 19.0716]); }, 4200);
+            setTimeout(() => { pirosMarker.setLatLng([47.4738, 19.0728]); }, 4900);
           }
         }, 50);
       }, 3500);
