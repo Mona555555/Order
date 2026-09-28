@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Irány haza!</title>
+  <title>Üdv itthon!</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/globe.gl/dist/globe.gl.min.js"></script>
@@ -105,6 +105,50 @@
     .notif-btn:hover { opacity: 0.85; transform: scale(1.04); }
     #btn-igen1 { background: #16a34a; color: white; }
     #btn-igen2 { background: #16a34a; color: white; }
+
+    /* ── Megjött szöveg ── */
+    #megerkezett {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      background: white;
+      border-radius: 18px;
+      padding: 20px 36px;
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a2e;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      z-index: 2000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.17,.67,.38,1.3);
+    }
+    #megerkezett.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* ── fejek overlay ── */
+    #fejek-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2100;
+      pointer-events: none;
+      opacity: 0;
+    }
+    #fejek-overlay.show { opacity: 1; }
+    #fejek-img {
+      max-width: 80vw;
+      max-height: 80vh;
+      object-fit: contain;
+    }
+    #fejek-img.pop-scale2 {
+      animation: popScale2 1.2s cubic-bezier(.17,.67,.38,1.3);
+    }
 
     /* ── hm overlay ── */
     #hm-overlay {
@@ -484,6 +528,12 @@
   <button class="merre-btn" id="btn-garages">Induljunk a garázsba</button>
 </div>
 
+<!-- Megjött szöveg -->
+<div id="megerkezett">📦 Megjött a csomagod!!!</div>
+
+<!-- fejek overlay -->
+<div id="fejek-overlay"><img id="fejek-img" src="fejek.png" /></div>
+
 <!-- hm.jpg overlay -->
 <div id="hm-overlay"><img id="hm-img" src="hm.jpg" /></div>
 
@@ -668,22 +718,25 @@
             setTimeout(() => {
               img.src = 'moso.png';
               setTimeout(() => {
-                img.src = 'ujtulaj.png';
+                img.src = 'strand.png';
                 setTimeout(() => {
-                  document.getElementById('orokre').classList.add('show');
+                  img.src = 'ujtulaj.png';
                   setTimeout(() => {
-                    const hmOverlay = document.getElementById('hm-overlay');
-                    const hmImg = document.getElementById('hm-img');
-                    hmOverlay.classList.add('show');
-                    hmImg.classList.remove('pop-scale');
-                    void hmImg.offsetWidth;
-                    hmImg.classList.add('pop-scale');
-                    hmImg.addEventListener('animationend', () => {
+                    document.getElementById('orokre').classList.add('show');
+                    setTimeout(() => {
+                      const hmOverlay = document.getElementById('hm-overlay');
+                      const hmImg = document.getElementById('hm-img');
+                      hmOverlay.classList.add('show');
                       hmImg.classList.remove('pop-scale');
-                      document.getElementById('mego').classList.add('show');
-                    }, { once: true });
-                  }, 1500);
-                }, 2000);
+                      void hmImg.offsetWidth;
+                      hmImg.classList.add('pop-scale');
+                      hmImg.addEventListener('animationend', () => {
+                        hmImg.classList.remove('pop-scale');
+                        document.getElementById('mego').classList.add('show');
+                      }, { once: true });
+                    }, 1500);
+                  }, 2000);
+                }, 3000);
               }, 3000);
             }, 3000);
           }, 1500);
@@ -734,7 +787,8 @@
       .htmlElement(d => {
         const img = document.createElement('img');
         img.src = d.img;
-        img.style.cssText = `width:${d.w}px;pointer-events:none;`;
+        const flip = d.img === 'mosolybmw.png' ? ' scaleX(-1)' : '';
+        img.style.cssText = `width:${d.w}px;pointer-events:none;transform:${flip};`;
         return img;
       })
       .htmlLat(d => d.lat)
@@ -775,54 +829,130 @@
 
           const kekIcon   = L.icon({ iconUrl: 'kek.png',       iconSize: [70,70], iconAnchor: [35,35] });
           const pirosIcon = L.icon({ iconUrl: 'piros.png',      iconSize: [70,70], iconAnchor: [35,35] });
-          const bmwIcon   = L.icon({ iconUrl: 'mosolybmw.png',  iconSize: [90,68], iconAnchor: [45,34] });
+          const bmwIcon   = L.divIcon({
+            html: '<img src="mosolybmw.png" style="width:90px;height:68px;transform:scaleX(-1);display:block;">',
+            iconSize: [90, 68], iconAnchor: [45, 34], className: ''
+          });
 
-          // Start off-screen left — BMW előre, kek/piros mögötte sorban
-          const bmwMarker   = L.marker([47.4739, 18.950], { icon: bmwIcon,   zIndexOffset: 1000 }).addTo(map);
-          const kekMarker   = L.marker([47.4741, 18.910], { icon: kekIcon,   zIndexOffset: 500  }).addTo(map);
-          const pirosMarker = L.marker([47.4737, 18.870], { icon: pirosIcon, zIndexOffset: 500  }).addTo(map);
+          // Mind a három ugyanonnan indul, de késleltetve — sorban úsznak be
+          const OFF_LNG = 18.85; // képernyőn kívül balra
+          const LAT     = 47.4739;
 
-          // Lerp + easing helpers
+          const bmwMarker   = L.marker([LAT, OFF_LNG], { icon: bmwIcon,   zIndexOffset: 1000 }).addTo(map);
+          const kekMarker   = L.marker([LAT, OFF_LNG], { icon: kekIcon,   zIndexOffset: 500  }).addTo(map);
+          const pirosMarker = L.marker([LAT, OFF_LNG], { icon: pirosIcon, zIndexOffset: 500  }).addTo(map);
+
           function lerp(a, b, t) { return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
-          function easeIn(t)     { return t*t; }
           function easeInOut(t)  { return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
 
-          // Összejövési pont: képernyő fele (~19.025), de még nem a Pápay Park
-          const MEET       = [47.4739, 19.025];
+          const startPt  = [LAT, OFF_LNG];
+          const MEET     = [LAT, 19.025];
           const bmwFinal   = [47.4739, 19.0722];
           const kekFinal   = [47.4738, 19.0716];
           const pirosFinal = [47.4738, 19.0728];
 
-          const bmwStart   = [47.4739, 18.950]; // előre
-          const kekStart   = [47.4741, 18.910]; // mögötte
-          const pirosStart = [47.4737, 18.870]; // leghátul
+          const F1 = 160;        // keretek száma a MEET-ig (~2.6s)
+          const BMW_DELAY   = 0;
+          const KEK_DELAY   = 63;
+          const PIROS_DELAY = 81;
 
-          // Phase 1: lassú beúszás — BMW vezet, kek/piros felzárkózik a MEET pontnál
-          // Phase 2: együtt mennek be a Pápay Parkba
-          const F1 = 160; // lassú (~2.6s)
-          const F2 = 110; // beérkezés (~1.8s)
           let frame = 0;
+          let phase2Started = false;
+          let phase2Frame = 0;
+          const F2 = 100;
+
           const arriveIv = setInterval(() => {
             frame++;
-            if (frame <= F1) {
-              // BMW lineárisan halad MEET-ig
-              // kek/piros felzárkóznak (easeIn — lassan indulnak, gyorsulnak)
-              const tBmw  = frame / F1;
-              const tRest = easeIn(frame / F1);
-              bmwMarker.setLatLng(lerp(bmwStart, MEET, tBmw));
-              kekMarker.setLatLng(lerp(kekStart, MEET, tRest));
-              pirosMarker.setLatLng(lerp(pirosStart, MEET, tRest));
-            } else if (frame <= F1 + F2) {
-              // Mind a három együtt kúszik be Pápay Parkba
-              const t = easeInOut((frame - F1) / F2);
+
+            if (!phase2Started) {
+              // Phase 1 – sorban beúsznak, BMW vezet
+              const tBmw   = Math.min(Math.max(frame - BMW_DELAY,   0) / F1, 1);
+              const tKek   = Math.min(Math.max(frame - KEK_DELAY,   0) / F1, 1);
+              const tPiros = Math.min(Math.max(frame - PIROS_DELAY, 0) / F1, 1);
+
+              bmwMarker.setLatLng(lerp(startPt, MEET, tBmw));
+              kekMarker.setLatLng(lerp(startPt, MEET, tKek));
+              pirosMarker.setLatLng(lerp(startPt, MEET, tPiros));
+
+              // Ha mindenki elérte a MEET pontot, indul a 2. fázis
+              if (tBmw >= 1 && tKek >= 1 && tPiros >= 1) {
+                phase2Started = true;
+              }
+            } else {
+              // Phase 2 – együtt mennek be Pápay Parkba
+              phase2Frame++;
+              const t = easeInOut(Math.min(phase2Frame / F2, 1));
               bmwMarker.setLatLng(lerp(MEET, bmwFinal, t));
               kekMarker.setLatLng(lerp(MEET, kekFinal, t));
               pirosMarker.setLatLng(lerp(MEET, pirosFinal, t));
-            } else {
-              clearInterval(arriveIv);
-              bmwMarker.setLatLng(bmwFinal);
-              kekMarker.setLatLng(kekFinal);
-              pirosMarker.setLatLng(pirosFinal);
+              if (phase2Frame >= F2) {
+                clearInterval(arriveIv);
+                bmwMarker.setLatLng(bmwFinal);
+                kekMarker.setLatLng(kekFinal);
+                pirosMarker.setLatLng(pirosFinal);
+                // Térkép elrejtése, fehér háttér
+                document.getElementById('map').style.display = 'none';
+                const introEl = document.getElementById('intro');
+                const introImgEl = document.getElementById('intro-img');
+                introEl.style.display = 'flex';
+                introImgEl.style.display = 'none';
+                // "Megjött a csomagod!!!" szöveg, utána fejek.png
+                document.getElementById('megerkezett').classList.add('show');
+                setTimeout(() => {
+                  document.getElementById('megerkezett').classList.remove('show');
+                  const fejekOverlay = document.getElementById('fejek-overlay');
+                  const fejekImg = document.getElementById('fejek-img');
+                  fejekImg.src = 'fejek.png';
+                  fejekOverlay.classList.add('show');
+                  fejekImg.classList.remove('pop-scale2');
+                  void fejekImg.offsetWidth;
+                  fejekImg.classList.add('pop-scale2');
+                  fejekImg.addEventListener('animationend', () => {
+                    fejekImg.classList.remove('pop-scale2');
+                    fejekOverlay.classList.remove('show');
+                    const tw = document.getElementById('typewriter');
+                    tw.textContent = '';
+                    tw.classList.add('show');
+                    const text = 'Köszi Mona, nagyon tetszik a mestermű, minden nap egy ajándék vele, bevallom igazad volt!';
+                    let i = 0;
+                    const iv = setInterval(() => {
+                      tw.textContent += text[i++];
+                      if (i >= text.length) {
+                        clearInterval(iv);
+                        setTimeout(() => {
+                          tw.classList.remove('show');
+                          introImgEl.style.display = '';
+                          introImgEl.src = 'joejt.png';
+                          setTimeout(() => {
+                            introImgEl.src = 'moso.png';
+                            setTimeout(() => {
+                              introImgEl.src = 'strand.png';
+                              setTimeout(() => {
+                                introImgEl.src = 'ujtulaj.png';
+                                setTimeout(() => {
+                                  document.getElementById('orokre').classList.add('show');
+                                  setTimeout(() => {
+                                    const hmOverlay = document.getElementById('hm-overlay');
+                                    const hmImg = document.getElementById('hm-img');
+                                    hmOverlay.classList.add('show');
+                                    hmImg.classList.remove('pop-scale');
+                                    void hmImg.offsetWidth;
+                                    hmImg.classList.add('pop-scale');
+                                    hmImg.addEventListener('animationend', () => {
+                                      hmImg.classList.remove('pop-scale');
+                                      document.getElementById('mego').classList.add('show');
+                                    }, { once: true });
+                                  }, 1500);
+                                }, 2000);
+                              }, 3000);
+                            }, 3000);
+                          }, 3000);
+                        }, 1500);
+                      }
+                    }, 120);
+                  }, { once: true });
+                }, 2000);
+              }
             }
           }, 16);
 
