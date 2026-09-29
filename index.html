@@ -3,990 +3,222 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Üdv itthon!</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/globe.gl/dist/globe.gl.min.js"></script>
+  <title>Szerencsekerék</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { width: 100vw; height: 100vh; overflow: hidden; font-family: sans-serif; }
-
-    /* ── Kezdőkép ── */
-    #intro {
-      position: fixed;
-      inset: 0;
-      z-index: 500;
-      background: #fff;
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      color: white;
+      user-select: none;
     }
-    #intro img {
-      width: 90%;
-      height: 90%;
-      object-fit: contain;
-      border-radius: 12px;
+    h1 {
+      font-size: 2.4rem;
+      margin-bottom: 2.4rem;
+      letter-spacing: 3px;
+      text-shadow: 0 0 24px rgba(255, 215, 0, 0.5);
     }
-
-    /* ── Térkép (kezdetben rejtve) ── */
-    #map { width: 100%; height: 100%; display: none; }
-    #globe-wrap { display: none; position: fixed; inset: 0; z-index: 600; background: #020817; }
-
-    /* ── Ding-Dong popup ── */
-    #dingdong {
-      position: fixed;
-      top: 50%;
+    .wheel-wrap {
+      position: relative;
+      width: 400px;
+      height: 400px;
+    }
+    canvas {
+      display: block;
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 6px rgba(255,215,0,0.5),
+        0 0 40px rgba(255,215,0,0.25),
+        0 8px 40px rgba(0,0,0,0.6);
+    }
+    .pointer {
+      position: absolute;
+      top: -20px;
       left: 50%;
-      zoom: 0.85;
-      transform: translate(-50%, -50%) scale(0.8);
-      background: white;
-      border-radius: 18px;
-      padding: 30px 40px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-      z-index: 1000;
-      text-align: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.4s ease, transform 0.4s ease;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-top: 34px solid #ffd700;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6));
+      z-index: 10;
     }
-    #dingdong.show {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
-    #dingdong .bell { font-size: 52px; margin-bottom: 10px; animation: ring 0.5s ease infinite alternate; display: block; }
-    @keyframes ring {
-      from { transform: rotate(-15deg); }
-      to   { transform: rotate(15deg); }
-    }
-    #dingdong .ding-text { font-size: 28px; font-weight: bold; color: #1a1a2e; }
-
-    /* ── Értesítő popup ── */
-    #notification {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      zoom: 0.85;
-      transform: translate(-50%, -50%) translateY(-30px);
-      background: white;
-      border-radius: 18px;
-      padding: 24px 28px 20px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      z-index: 1000;
-      max-width: 400px;
-      width: 90vw;
-      text-align: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.4s ease, transform 0.4s ease;
-    }
-    #notification.show {
-      opacity: 1;
-      pointer-events: all;
-      transform: translate(-50%, -50%) translateY(0);
-    }
-    #notification .notif-icon { font-size: 36px; margin-bottom: 10px; }
-    #notification .notif-text {
-      font-size: 16px;
-      font-weight: 600;
+    #spinBtn {
+      margin-top: 2.4rem;
+      padding: 16px 52px;
+      font-size: 1.3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
       color: #1a1a2e;
-      margin-bottom: 20px;
-      line-height: 1.5;
-    }
-    .notif-btns { display: flex; gap: 12px; justify-content: center; }
-    .notif-btn {
-      padding: 10px 32px;
       border: none;
-      border-radius: 22px;
-      font-size: 15px;
-      font-weight: bold;
+      border-radius: 50px;
       cursor: pointer;
-      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 24px rgba(255,180,0,0.45);
+      transition: transform 0.1s, box-shadow 0.1s;
     }
-    .notif-btn:hover { opacity: 0.85; transform: scale(1.04); }
-    #btn-igen1 { background: #16a34a; color: white; }
-    #btn-igen2 { background: #16a34a; color: white; }
-
-    /* ── Megjött szöveg ── */
-    #megerkezett {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0.8);
-      background: white;
-      border-radius: 18px;
-      padding: 20px 36px;
-      font-size: 22px;
-      font-weight: 700;
-      color: #1a1a2e;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      z-index: 2000;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.17,.67,.38,1.3);
+    #spinBtn:hover:not(:disabled) {
+      transform: scale(1.06);
+      box-shadow: 0 6px 32px rgba(255,180,0,0.65);
     }
-    #megerkezett.show {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
-
-    /* ── fejek overlay ── */
-    #fejek-overlay {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2100;
-      pointer-events: none;
-      opacity: 0;
-    }
-    #fejek-overlay.show { opacity: 1; }
-    #fejek-img {
-      max-width: 80vw;
-      max-height: 80vh;
-      object-fit: contain;
-    }
-    #fejek-img.pop-scale2 {
-      animation: popScale2 1.2s cubic-bezier(.17,.67,.38,1.3);
-    }
-
-    /* ── hm overlay ── */
-    #hm-overlay {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2100;
-      pointer-events: none;
-      opacity: 0;
-    }
-    #hm-overlay.show { opacity: 1; }
-    #hm-img {
-      max-width: 80vw;
-      max-height: 80vh;
-      object-fit: contain;
-      transform-origin: top center;
-    }
-    #hm-img.pop-scale {
-      animation: popScale2 1.2s cubic-bezier(.17,.67,.38,1.3);
-    }
-
-    /* ── Meg ő is felirat ── */
-    #mego {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 80px;
+    #spinBtn:active:not(:disabled) { transform: scale(0.97); }
+    #spinBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+    #result {
+      margin-top: 2rem;
+      font-size: 2.8rem;
       font-weight: 900;
-      color: white;
-      text-shadow: 0 4px 24px rgba(0,0,0,0.7);
-      letter-spacing: 4px;
-      z-index: 2200;
+      min-height: 3.2rem;
+      letter-spacing: 2px;
       opacity: 0;
-      transform: scale(0.5);
-      pointer-events: none;
-      transition: opacity 0.5s ease, transform 0.5s cubic-bezier(.17,.67,.38,1.3);
+      transform: scale(0.7);
+      transition: opacity 0.5s, transform 0.5s cubic-bezier(.17,.67,.38,1.4);
     }
-    #mego.show { opacity: 1; transform: scale(1); }
-
-    /* ── ÖRÖKRE felirat ── */
-    #orokre {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 96px;
-      font-weight: 900;
-      color: white;
-      text-shadow: 0 4px 24px rgba(0,0,0,0.6);
-      letter-spacing: 6px;
-      z-index: 2000;
-      opacity: 0;
-      transform: scale(0.5);
-      pointer-events: none;
-      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(.17,.67,.38,1.3);
-    }
-    #orokre.show {
+    #result.show {
       opacity: 1;
       transform: scale(1);
-    }
-
-    /* ── Typewriter ── */
-    #typewriter {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: white;
-      z-index: 500;
-      align-items: center;
-      justify-content: center;
-      padding: 40px;
-      font-size: 28px;
-      font-weight: 700;
-      color: #1a1a2e;
-      text-align: center;
-      line-height: 1.6;
-    }
-    #typewriter.show { display: flex; }
-
-    /* ── Merre popup ── */
-    #merre {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      zoom: 0.85;
-      transform: translate(-50%, -50%) translateY(-20px);
-      background: white;
-      border-radius: 18px;
-      padding: 28px 32px 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-      z-index: 1300;
-      max-width: 420px;
-      width: 90vw;
-      text-align: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.4s ease, transform 0.4s ease;
-    }
-    #merre.show {
-      opacity: 1;
-      pointer-events: all;
-      transform: translate(-50%, -50%) translateY(0);
-    }
-    .merre-title {
-      font-size: 17px;
-      font-weight: 700;
-      color: #1a1a2e;
-      margin-bottom: 20px;
-      line-height: 1.5;
-    }
-    .merre-btns { display: flex; flex-direction: column; gap: 10px; }
-    .merre-btn {
-      padding: 11px 20px;
-      border: none;
-      border-radius: 22px;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      background: #3b82f6;
-      color: white;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    .merre-btn:hover { opacity: 0.85; transform: scale(1.03); }
-    .merre-btn-long { font-size: 13px; }
-
-    /* ── Tündep popup ── */
-    #tundep-popup {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      zoom: 0.85;
-      transform: translate(-50%, -50%) translateY(-20px);
-      background: white;
-      border-radius: 18px;
-      padding: 28px 32px 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-      z-index: 1400;
-      max-width: 380px;
-      width: 90vw;
-      text-align: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.4s ease, transform 0.4s ease;
-    }
-    #tundep-popup.show {
-      opacity: 1;
-      pointer-events: all;
-      transform: translate(-50%, -50%) translateY(0);
-    }
-    .tundep-text {
-      font-size: 18px;
-      font-weight: 700;
-      color: #1a1a2e;
-      margin-bottom: 20px;
-      line-height: 1.5;
-    }
-
-    /* ── Siess popup ── */
-    #siess {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      zoom: 0.85;
-      transform: translate(-50%, -50%) scale(0.8);
-      background: #fef08a;
-      border: 3px solid #eab308;
-      color: #713f12;
-      border-radius: 18px;
-      padding: 24px 40px;
-      font-size: 22px;
-      font-weight: 900;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      z-index: 1200;
-      text-align: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.17,.67,.38,1.3);
-    }
-    #siess.show {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
-
-    /* ── Jó válasz popup ── */
-    #jo-valasz {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      zoom: 0.85;
-      transform: translate(-50%, -50%) scale(0.8);
-      background: #16a34a;
-      color: white;
-      border-radius: 18px;
-      padding: 28px 48px;
-      font-size: 26px;
-      font-weight: 900;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      z-index: 1200;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.17,.67,.38,1.3);
-    }
-    #jo-valasz.show {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
-
-    /* ── Automata kézbesítés popup ── */
-    #auto-delivery {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      zoom: 0.85;
-      transform: translate(-50%, -50%) translateY(-30px);
-      background: white;
-      border-radius: 18px;
-      padding: 28px 32px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      z-index: 1100;
-      max-width: 420px;
-      width: 90vw;
-      text-align: center;
-      font-size: 15px;
-      font-weight: 600;
-      color: #1a1a2e;
-      line-height: 1.6;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.4s ease, transform 0.4s ease;
-    }
-    #auto-delivery.show {
-      opacity: 1;
-      pointer-events: all;
-      transform: translate(-50%, -50%) translateY(0);
-    }
-    #countdown {
-      margin-top: 16px;
-      font-size: 48px;
-      font-weight: 900;
-      color: #dc2626;
-    }
-
-    /* ── Kúszó ijesztő felirat ── */
-    #creepy {
-      position: fixed;
-      left: 5%;
-      right: 5%;
-      bottom: -200px;
-      text-align: center;
-      font-size: 18px;
-      font-weight: 900;
-      color: #7f1d1d;
-      letter-spacing: 1px;
-      text-shadow:
-        0 0 6px white,  0 0 12px white, 0 0 20px white,
-        0 0 30px white,
-        0 0 8px #ef4444, 0 0 20px #ef4444;
-      z-index: 900;
-      padding: 14px 24px;
-      transition: bottom 8s linear;
-      pointer-events: none;
-    }
-    #creepy.crawl {
-      bottom: calc(50% - 110px);
-    }
-
-    /* ── Welcome overlay ── */
-    #welcome {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 2000;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-    #welcome.show { display: flex; }
-    #welcome-inner {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: stretch;
-      max-width: 40vw;
-      animation: pop 0.45s cubic-bezier(.17,.67,.38,1.3);
-    }
-    #welcome-banner {
-      background: #fde68a;
-      border: 2px solid #f59e0b;
-      border-radius: 12px 12px 0 0;
-      padding: 10px 24px;
-      font-size: 16px;
-      font-weight: bold;
-      color: #92400e;
-      text-align: center;
-      box-sizing: border-box;
-      word-wrap: break-word;
-      white-space: normal;
-    }
-    #welcome img {
-      max-width: 40vw;
-      max-height: 40vh;
-      border-radius: 0 0 16px 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      display: block;
-    }
-    @keyframes pop {
-      from { transform: scale(0.55); opacity: 0; }
-      to   { transform: scale(1);    opacity: 1; }
-    }
-    @keyframes popScale {
-      0%   { transform: scale(1) translateX(0); }
-      18%  { transform: scale(3) translateX(0); }
-      28%  { transform: scale(3) translateX(-12px); }
-      38%  { transform: scale(3) translateX(12px); }
-      46%  { transform: scale(3) translateX(-12px); }
-      54%  { transform: scale(3) translateX(12px); }
-      62%  { transform: scale(3) translateX(0); }
-      100% { transform: scale(1) translateX(0); }
-    }
-    @keyframes popScale2 {
-      0%   { transform: scale(1) translateX(0); }
-      18%  { transform: scale(2) translateX(0); }
-      28%  { transform: scale(2) translateX(-10px); }
-      38%  { transform: scale(2) translateX(10px); }
-      46%  { transform: scale(2) translateX(-10px); }
-      54%  { transform: scale(2) translateX(10px); }
-      62%  { transform: scale(2) translateX(0); }
-      100% { transform: scale(1) translateX(0); }
-    }
-    #intro-img.pop-scale {
-      animation: popScale 1.2s cubic-bezier(.17,.67,.38,1.3);
     }
   </style>
 </head>
 <body>
-
-<!-- Kezdőkép -->
-<div id="intro">
-  <img id="intro-img" src="chill.png" alt="intro" />
-</div>
-
-<!-- Térkép -->
-<div id="map"></div>
-
-<!-- 3D Földgömb a versenyhez -->
-<div id="globe-wrap"></div>
-
-<!-- Ding-Dong popup -->
-<div id="dingdong">
-  <span class="bell">🔔</span>
-  <div class="ding-text">Ding-Dong</div>
-</div>
-
-<!-- Jó válasz popup -->
-<div id="jo-valasz">✅ Jó válasz!</div>
-
-<!-- Siess popup -->
-<div id="siess">⚡ Siess, mindjárt itt van!</div>
-
-<!-- Merre popup -->
-<div id="merre">
-  <div class="merre-title">🧭 Merre meneküljek a mestermű elől?</div>
-  <div class="merre-btns">
-    <button class="merre-btn" id="btn-tunde">Tündéhez</button>
-    <button class="merre-btn" id="btn-nem">Nem menekülök, végre belátom, hogy tényleg kell a rém.</button>
+  <h1>Kivel szeretnél aludni ma éjjel?</h1>
+  <div class="wheel-wrap">
+    <canvas id="wheel" width="400" height="400"></canvas>
+    <div class="pointer"></div>
   </div>
-</div>
+  <button id="spinBtn" onclick="spin()">Pörgetés!</button>
+  <div id="result"></div>
 
-<!-- Tündep popup -->
-<div id="tundep-popup">
-  <div class="tundep-text">Én menekülnék tovább...</div>
-  <button class="merre-btn" id="btn-garages">Induljunk a garázsba</button>
-</div>
+  <script>
+    const canvas = document.getElementById('wheel');
+    const ctx    = canvas.getContext('2d');
+    const cx = canvas.width  / 2;
+    const cy = canvas.height / 2;
+    const R  = cx - 8;
 
-<!-- Megjött szöveg -->
-<div id="megerkezett">📦 Megjött a csomagod!!!</div>
-
-<!-- fejek overlay -->
-<div id="fejek-overlay"><img id="fejek-img" src="fejek.png" /></div>
-
-<!-- hm.jpg overlay -->
-<div id="hm-overlay"><img id="hm-img" src="hm.jpg" /></div>
-
-<!-- Meg ő is felirat -->
-<div id="mego">Meg ő is!</div>
-
-<!-- ÖRÖKRE felirat -->
-<div id="orokre">ÖRÖKRE!</div>
-
-<!-- Typewriter szöveg -->
-<div id="typewriter"></div>
-
-<!-- Kúszó felirat -->
-<div id="creepy">Már közelít, hallatszik a kúszásának minden mozdulata</div>
-
-<!-- Automata kézbesítés popup -->
-<div id="auto-delivery">
-  <span id="auto-delivery-text"></span>
-  <div id="countdown"></div>
-</div>
-
-<!-- Értesítő -->
-<div id="notification">
-  <div class="notif-icon">📦</div>
-  <div class="notif-text">Várva várt csomagja megérkezett, átveszi?</div>
-  <div class="notif-btns">
-    <button class="notif-btn" id="btn-igen1">Igen</button>
-    <button class="notif-btn" id="btn-igen2">Igen</button>
-  </div>
-</div>
-
-<!-- Welcome overlay -->
-<div id="welcome" onclick="this.classList.remove('show')">
-  <div id="welcome-inner">
-    <div id="welcome-banner">☀️ Üdvözöllek szomszéd, milyen szépen süt itt a nap ma a Pápay parkban. Már meg is rendeltem a pizzádat, fél óra múlva jön!</div>
-    <img src="welcome.png" alt="Üdvözlünk otthon!" />
-  </div>
-</div>
-
-<script>
-  // BMW starts from Pápay Park
-  const START = [47.4739, 19.0722];
-
-  // ── Ding-Dong 4mp után, majd whaat.png, majd értesítő ──
-  setTimeout(() => {
-    document.getElementById('dingdong').classList.add('show');
-    setTimeout(() => {
-      document.getElementById('dingdong').classList.remove('show');
-      setTimeout(() => {
-        document.getElementById('intro-img').src = 'whaat.png';
-        setTimeout(() => {
-          document.getElementById('notification').classList.add('show');
-          autoTimer = setTimeout(() => {
-            if (accepted) return;
-            accepted = true;
-            document.getElementById('notification').classList.remove('show');
-            startCountdown('📬 Mivel nem fogadta el 2 másodpercen belül, automata kézbesítés lépett érvénybe a küszöb alatt.');
-          }, 2000);
-        }, 2000);
-      }, 400);
-    }, 2000);
-  }, 4000);
-
-  // ── Igen gombok + auto-timeout ──────────────────────────
-  let autoTimer = null;
-  let accepted = false;
-
-  function goToUjuj() {
-    document.getElementById('auto-delivery').classList.remove('show');
-    document.getElementById('intro-img').src = 'ujuj.png';
-    setTimeout(() => {
-      document.getElementById('intro-img').src = 'packing.png';
-      document.getElementById('siess').classList.add('show');
-      setTimeout(() => {
-        document.getElementById('siess').classList.remove('show');
-        setTimeout(() => {
-          document.getElementById('intro-img').src = 'Tunde.png';
-          setTimeout(() => {
-            document.getElementById('intro-img').src = 'escape.png';
-            setTimeout(() => {
-              document.getElementById('intro-img').src = 'kozelit.png';
-              setTimeout(() => {
-                document.getElementById('intro-img').src = 'ittvan.png';
-                setTimeout(() => {
-                  document.getElementById('intro-img').src = 'kuszob.png';
-                  setTimeout(() => {
-                    document.getElementById('intro-img').src = 'direction.png';
-                    setTimeout(() => {
-                      document.getElementById('merre').classList.add('show');
-                    }, 1000);
-                  }, 3000);
-                }, 3000);
-              }, 2000);
-            }, 3000);
-          }, 9000);
-        }, 2400);
-      }, 3000);
-    }, 2000);
-  }
-
-  function startCountdown(text) {
-    document.getElementById('auto-delivery-text').textContent = text;
-    document.getElementById('auto-delivery').classList.add('show');
-    setTimeout(() => {
-      let n = 10;
-      const cdEl = document.getElementById('countdown');
-      cdEl.textContent = n;
-      const creepy = document.getElementById('creepy');
-      const iv = setInterval(() => {
-        n--;
-        cdEl.textContent = n;
-        if (n === 8) {
-          creepy.style.transition = 'none';
-          creepy.style.bottom = '4%';
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              creepy.style.transition = 'bottom 8s linear';
-              creepy.style.bottom = 'calc(50% - 110px)';
-            });
-          });
-        }
-        if (n <= 0) {
-          clearInterval(iv);
-          creepy.style.transition = 'opacity 0.4s';
-          creepy.style.opacity = '0';
-          goToUjuj();
-        }
-      }, 1000);
-    }, 4000);
-  }
-
-  function igenClicked() {
-    if (accepted) return;
-    accepted = true;
-    clearTimeout(autoTimer);
-    document.getElementById('notification').classList.remove('show');
-    startCountdown('📬 Jó döntés, az automata kézbesítés elindult a küszöb alatt.');
-  }
-
-  document.getElementById('btn-igen1').addEventListener('click', igenClicked);
-  document.getElementById('btn-igen2').addEventListener('click', igenClicked);
-
-  document.getElementById('btn-tunde').addEventListener('click', () => {
-    document.getElementById('merre').classList.remove('show');
-    document.getElementById('intro-img').src = 'tundep.png';
-    setTimeout(() => {
-      document.getElementById('tundep-popup').classList.add('show');
-    }, 2000);
-  });
-  document.getElementById('btn-garages').addEventListener('click', () => {
-    document.getElementById('tundep-popup').classList.remove('show');
-    document.getElementById('intro-img').src = 'garazsjujj.png';
-    setTimeout(() => {
-      document.getElementById('intro').style.display = 'none';
-      showMap();
-    }, 3000);
-  });
-  document.getElementById('btn-nem').addEventListener('click', () => {
-    document.getElementById('merre').classList.remove('show');
-    const img = document.getElementById('intro-img');
-    img.src = 'fej.png';
-    img.classList.remove('pop-scale');
-    void img.offsetWidth;
-    img.classList.add('pop-scale');
-    img.addEventListener('animationend', () => {
-      img.classList.remove('pop-scale');
-      img.style.display = 'none';
-      const tw = document.getElementById('typewriter');
-      tw.textContent = '';
-      tw.classList.add('show');
-      const text = 'Köszi Mona, nagyon tetszik a mestermű, minden nap egy ajándék vele, bevallom igazad volt!';
-      let i = 0;
-      const iv = setInterval(() => {
-        tw.textContent += text[i];
-        i++;
-        if (i >= text.length) {
-          clearInterval(iv);
-          setTimeout(() => {
-            tw.classList.remove('show');
-            img.style.display = '';
-            img.src = 'joejt.png';
-            setTimeout(() => {
-              img.src = 'moso.png';
-              setTimeout(() => {
-                img.src = 'strand.png';
-                setTimeout(() => {
-                  img.src = 'ujtulaj.png';
-                  setTimeout(() => {
-                    document.getElementById('orokre').classList.add('show');
-                    setTimeout(() => {
-                      const hmOverlay = document.getElementById('hm-overlay');
-                      const hmImg = document.getElementById('hm-img');
-                      hmOverlay.classList.add('show');
-                      hmImg.classList.remove('pop-scale');
-                      void hmImg.offsetWidth;
-                      hmImg.classList.add('pop-scale');
-                      hmImg.addEventListener('animationend', () => {
-                        hmImg.classList.remove('pop-scale');
-                        document.getElementById('mego').classList.add('show');
-                      }, { once: true });
-                    }, 1500);
-                  }, 2000);
-                }, 3000);
-              }, 3000);
-            }, 3000);
-          }, 1500);
-        }
-      }, 120);
-    }, { once: true });
-  });
-
-  // ── Térkép (később jelenik meg) ───────────────────────
-  let mapInitialized = false;
-  function showMap() {
-    if (mapInitialized) return;
-    mapInitialized = true;
-
-    function lngFromAngle(a) {
-      const n = ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-      return (n / (2 * Math.PI)) * 360 - 180;
-    }
-
-    // ── Phase 1: 3D Globe race ───────────────────────────
-    const globeWrap = document.getElementById('globe-wrap');
-    globeWrap.style.display = 'block';
-
-    const myGlobe = Globe({ animateIn: false })
-      .width(window.innerWidth)
-      .height(window.innerHeight)
-      .backgroundColor('#020817')
-      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-      .atmosphereColor('lightskyblue')
-      .atmosphereAltitude(0.12)
-      (globeWrap);
-
-    myGlobe.pointOfView({ lat: 0, lng: 0, altitude: 2.5 });
-    myGlobe.controls().autoRotate = true;
-    myGlobe.controls().autoRotateSpeed = 2;
-    myGlobe.controls().enableZoom = false;
-    myGlobe.controls().enablePan = false;
-    myGlobe.controls().enableRotate = false;
-
-    const raceData = [
-      { lat: 0, lng: 0,   img: 'mosolybmw.png', w: 55 },
-      { lat: 0, lng: -25, img: 'kek.png',        w: 45 },
-      { lat: 0, lng: -50, img: 'piros.png',       w: 45 },
+    const sections = [
+      { label: 'Mona', color: '#e8397a', dark: '#c02060' },
+      { label: 'Isti', color: '#0097b2', dark: '#006f85' },
     ];
 
-    myGlobe
-      .htmlElementsData(raceData)
-      .htmlElement(d => {
-        const img = document.createElement('img');
-        img.src = d.img;
-        const flip = d.img === 'mosolybmw.png' ? ' scaleX(-1)' : '';
-        img.style.cssText = `width:${d.w}px;pointer-events:none;transform:${flip};`;
-        return img;
-      })
-      .htmlLat(d => d.lat)
-      .htmlLng(d => d.lng);
+    let currentAngle = 0;
+    let spinning     = false;
 
-    const glLabel = document.createElement('div');
-    glLabel.textContent = 'Induljon a hajsza!';
-    glLabel.style.cssText = 'position:absolute;top:20px;left:50%;transform:translateX(-50%);background:white;padding:10px 24px;border-radius:22px;font-size:20px;font-weight:900;color:#1a1a2e;box-shadow:0 4px 16px rgba(0,0,0,0.4);z-index:10;white-space:nowrap;pointer-events:none;';
-    globeWrap.appendChild(glLabel);
+    function drawWheel(angle) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const slice = (2 * Math.PI) / sections.length;
 
-    let angle = 0;
-    const raceIv = setInterval(() => {
-      angle += 0.04;
-      raceData[0].lng = lngFromAngle(angle);
-      raceData[1].lng = lngFromAngle(angle - 0.5);
-      raceData[2].lng = lngFromAngle(angle - 1.0);
-      myGlobe.htmlElementsData([...raceData]);
+      sections.forEach((sec, i) => {
+        const start = angle + i * slice - Math.PI / 2;
+        const end   = start + slice;
+        const mid   = (start + end) / 2;
 
-      if (angle >= 2 * Math.PI) {
-        clearInterval(raceIv);
-        myGlobe.controls().autoRotate = false;
+        // Gradient fill
+        const gx1 = cx + Math.cos(mid) * R * 0.3;
+        const gy1 = cy + Math.sin(mid) * R * 0.3;
+        const gx2 = cx + Math.cos(mid) * R;
+        const gy2 = cy + Math.sin(mid) * R;
+        const grad = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
+        grad.addColorStop(0, sec.color);
+        grad.addColorStop(1, sec.dark);
 
-        // Fade out globe
-        globeWrap.style.transition = 'opacity 1s';
-        globeWrap.style.opacity = '0';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, R, start, end);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
 
-        setTimeout(() => {
-          globeWrap.style.display = 'none';
+        // Label text
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(mid);
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle    = 'white';
+        ctx.font         = 'bold 44px Segoe UI';
+        ctx.shadowColor  = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur   = 8;
+        ctx.fillText(sec.label, R * 0.55, 0);
+        ctx.restore();
+      });
 
-          // ── Phase 2: Leaflet map – arrive at Budapest ──
-          document.getElementById('map').style.display = 'block';
+      // Outer ring accent
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(255,215,0,0.7)';
+      ctx.lineWidth   = 5;
+      ctx.stroke();
 
-          const map = L.map('map', { zoomControl: false }).setView(START, 15);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 19
-          }).addTo(map);
-
-          const kekIcon   = L.icon({ iconUrl: 'kek.png',       iconSize: [70,70], iconAnchor: [35,35] });
-          const pirosIcon = L.icon({ iconUrl: 'piros.png',      iconSize: [70,70], iconAnchor: [35,35] });
-          const bmwIcon   = L.divIcon({
-            html: '<img src="mosolybmw.png" style="width:90px;height:68px;transform:scaleX(-1);display:block;">',
-            iconSize: [90, 68], iconAnchor: [45, 34], className: ''
-          });
-
-          // Mind a három ugyanonnan indul, de késleltetve — sorban úsznak be
-          const OFF_LNG = 18.85; // képernyőn kívül balra
-          const LAT     = 47.4739;
-
-          const bmwMarker   = L.marker([LAT, OFF_LNG], { icon: bmwIcon,   zIndexOffset: 1000 }).addTo(map);
-          const kekMarker   = L.marker([LAT, OFF_LNG], { icon: kekIcon,   zIndexOffset: 500  }).addTo(map);
-          const pirosMarker = L.marker([LAT, OFF_LNG], { icon: pirosIcon, zIndexOffset: 500  }).addTo(map);
-
-          function lerp(a, b, t) { return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
-          function easeInOut(t)  { return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
-
-          const startPt  = [LAT, OFF_LNG];
-          const MEET     = [LAT, 19.025];
-          const bmwFinal   = [47.4739, 19.0722];
-          const kekFinal   = [47.4738, 19.0716];
-          const pirosFinal = [47.4738, 19.0728];
-
-          const F1 = 160;        // keretek száma a MEET-ig (~2.6s)
-          const BMW_DELAY   = 0;
-          const KEK_DELAY   = 63;
-          const PIROS_DELAY = 81;
-
-          let frame = 0;
-          let phase2Started = false;
-          let phase2Frame = 0;
-          const F2 = 100;
-
-          const arriveIv = setInterval(() => {
-            frame++;
-
-            if (!phase2Started) {
-              // Phase 1 – sorban beúsznak, BMW vezet
-              const tBmw   = Math.min(Math.max(frame - BMW_DELAY,   0) / F1, 1);
-              const tKek   = Math.min(Math.max(frame - KEK_DELAY,   0) / F1, 1);
-              const tPiros = Math.min(Math.max(frame - PIROS_DELAY, 0) / F1, 1);
-
-              bmwMarker.setLatLng(lerp(startPt, MEET, tBmw));
-              kekMarker.setLatLng(lerp(startPt, MEET, tKek));
-              pirosMarker.setLatLng(lerp(startPt, MEET, tPiros));
-
-              // Ha mindenki elérte a MEET pontot, indul a 2. fázis
-              if (tBmw >= 1 && tKek >= 1 && tPiros >= 1) {
-                phase2Started = true;
-              }
-            } else {
-              // Phase 2 – együtt mennek be Pápay Parkba
-              phase2Frame++;
-              const t = easeInOut(Math.min(phase2Frame / F2, 1));
-              bmwMarker.setLatLng(lerp(MEET, bmwFinal, t));
-              kekMarker.setLatLng(lerp(MEET, kekFinal, t));
-              pirosMarker.setLatLng(lerp(MEET, pirosFinal, t));
-              if (phase2Frame >= F2) {
-                clearInterval(arriveIv);
-                bmwMarker.setLatLng(bmwFinal);
-                kekMarker.setLatLng(kekFinal);
-                pirosMarker.setLatLng(pirosFinal);
-                // Térkép elrejtése, fehér háttér
-                document.getElementById('map').style.display = 'none';
-                const introEl = document.getElementById('intro');
-                const introImgEl = document.getElementById('intro-img');
-                introEl.style.display = 'flex';
-                introImgEl.style.display = 'none';
-                // "Megjött a csomagod!!!" szöveg, utána fejek.png
-                document.getElementById('megerkezett').classList.add('show');
-                setTimeout(() => {
-                  document.getElementById('megerkezett').classList.remove('show');
-                  const fejekOverlay = document.getElementById('fejek-overlay');
-                  const fejekImg = document.getElementById('fejek-img');
-                  fejekImg.src = 'fejek.png';
-                  fejekOverlay.classList.add('show');
-                  fejekImg.classList.remove('pop-scale2');
-                  void fejekImg.offsetWidth;
-                  fejekImg.classList.add('pop-scale2');
-                  fejekImg.addEventListener('animationend', () => {
-                    fejekImg.classList.remove('pop-scale2');
-                    fejekOverlay.classList.remove('show');
-                    const tw = document.getElementById('typewriter');
-                    tw.textContent = '';
-                    tw.classList.add('show');
-                    const text = 'Köszi Mona, nagyon tetszik a mestermű, minden nap egy ajándék vele, bevallom igazad volt!';
-                    let i = 0;
-                    const iv = setInterval(() => {
-                      tw.textContent += text[i++];
-                      if (i >= text.length) {
-                        clearInterval(iv);
-                        setTimeout(() => {
-                          tw.classList.remove('show');
-                          introImgEl.style.display = '';
-                          introImgEl.src = 'joejt.png';
-                          setTimeout(() => {
-                            introImgEl.src = 'moso.png';
-                            setTimeout(() => {
-                              introImgEl.src = 'strand.png';
-                              setTimeout(() => {
-                                introImgEl.src = 'ujtulaj.png';
-                                setTimeout(() => {
-                                  document.getElementById('orokre').classList.add('show');
-                                  setTimeout(() => {
-                                    const hmOverlay = document.getElementById('hm-overlay');
-                                    const hmImg = document.getElementById('hm-img');
-                                    hmOverlay.classList.add('show');
-                                    hmImg.classList.remove('pop-scale');
-                                    void hmImg.offsetWidth;
-                                    hmImg.classList.add('pop-scale');
-                                    hmImg.addEventListener('animationend', () => {
-                                      hmImg.classList.remove('pop-scale');
-                                      document.getElementById('mego').classList.add('show');
-                                    }, { once: true });
-                                  }, 1500);
-                                }, 2000);
-                              }, 3000);
-                            }, 3000);
-                          }, 3000);
-                        }, 1500);
-                      }
-                    }, 120);
-                  }, { once: true });
-                }, 2000);
-              }
-            }
-          }, 16);
-
-          const hajszaDiv = document.createElement('div');
-          hajszaDiv.textContent = 'Induljon a hajsza!';
-          hajszaDiv.style.cssText = 'position:absolute;top:16px;left:50%;transform:translateX(-50%);background:white;padding:10px 24px;border-radius:22px;font-size:20px;font-weight:900;color:#1a1a2e;box-shadow:0 4px 16px rgba(0,0,0,0.25);letter-spacing:1px;z-index:1000;white-space:nowrap;';
-          document.getElementById('map').appendChild(hajszaDiv);
-
-        }, 1000);
-      }
-    }, 50);
-  }
-
-  // ── Interpolation helper ──────────────────────────────
-  function interpolate(pts, steps) {
-    const segs = []; let total = 0;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const d = Math.hypot(pts[i][0]-pts[i+1][0], pts[i][1]-pts[i+1][1]);
-      segs.push(d); total += d;
+      // Center cap
+      const capGrad = ctx.createRadialGradient(cx, cy - 4, 2, cx, cy, 26);
+      capGrad.addColorStop(0, '#fff9c4');
+      capGrad.addColorStop(1, '#ffd700');
+      ctx.beginPath();
+      ctx.arc(cx, cy, 26, 0, 2 * Math.PI);
+      ctx.fillStyle   = capGrad;
+      ctx.fill();
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth   = 3;
+      ctx.stroke();
     }
-    const result = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const n = Math.max(2, Math.round((segs[i] / total) * steps));
-      for (let j = 0; j < n; j++) {
-        const t = j / n;
-        result.push([
-          pts[i][0] + t * (pts[i+1][0] - pts[i][0]),
-          pts[i][1] + t * (pts[i+1][1] - pts[i][1])
-        ]);
-      }
+
+    function easeOut(t) {
+      return 1 - Math.pow(1 - t, 4);
     }
-    result.push(pts[pts.length - 1]);
-    return result;
-  }
-</script>
+
+    function spin() {
+      if (spinning) return;
+      spinning = true;
+      document.getElementById('spinBtn').disabled = true;
+      const resultEl = document.getElementById('result');
+      resultEl.classList.remove('show');
+
+      // Always land on Isti.
+      // Isti is at the top (pointer position) when currentAngle ≡ π/2 (mod 2π).
+      // Compute how much extra rotation is needed from the current position.
+      const fullSpins  = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+      const nudge      = (Math.random() * 0.5 - 0.25) * Math.PI; // ±0.25π, stays in Isti
+      const desired    = Math.PI / 2 + nudge; // target angle mod 2π (center of Isti = π/2)
+      const normalized = ((currentAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      let   delta      = desired - normalized;
+      if (delta < 0) delta += 2 * Math.PI;
+      const targetAngle = currentAngle + fullSpins + delta;
+
+      const duration  = 4200 + Math.random() * 1400;
+      const startAngle = currentAngle;
+      const startTime  = performance.now();
+
+      function animate(now) {
+        const t = Math.min((now - startTime) / duration, 1);
+        currentAngle = startAngle + (targetAngle - startAngle) * easeOut(t);
+        drawWheel(currentAngle);
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          currentAngle = targetAngle;
+          drawWheel(currentAngle);
+          spinning = false;
+          document.getElementById('spinBtn').disabled = false;
+          resultEl.textContent = '🎉  Isti!  🎉';
+          resultEl.style.color = '#00d4f5';
+          resultEl.style.textShadow = '0 0 20px #00d4f5, 0 0 40px rgba(0,180,210,0.4)';
+          resultEl.classList.add('show');
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    drawWheel(0);
+  </script>
 </body>
 </html>
